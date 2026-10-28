@@ -5,6 +5,7 @@ import { Thumbnails } from './ui/Thumbnails'
 import { Stage } from './ui/Stage'
 import { Empty } from './ui/Empty'
 import { Presenter } from './ui/Presenter'
+import { Inspector } from './ui/Inspector'
 import { findNode } from './model'
 
 export default function App() {
@@ -109,6 +110,7 @@ export default function App() {
       <div className="flex-1 flex min-h-0" key={fontVersion}>
         {deck ? <Thumbnails /> : null}
         {deck ? <Stage /> : <Empty />}
+        {deck ? <Inspector /> : null}
       </div>
       {presenting ? <Presenter /> : null}
       {dragging ? (

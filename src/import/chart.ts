@@ -279,7 +279,7 @@ function seriesOption(s: SeriesDef, i: number): Record<string, unknown> {
     return c === undefined ? v : { value: v, itemStyle: { color: c ?? 'transparent' } }
   })
   const color = s.color ?? 'transparent'
-  const base: Record<string, unknown> = { name: s.name, data }
+  const base: Record<string, unknown> = { name: s.name, data, format: code }
   if (s.kind === 'line') {
     return {
       ...base,
@@ -344,6 +344,7 @@ function axisOption(axis: Element | undefined, ctx: PartCtx, isCat: boolean, fal
     name,
     nameLocation: 'middle',
     nameGap: isCat ? 26 : 42,
+    format: code,
     nameTextStyle: { fontSize: font.size || fallback.size, fontFamily: font.family || fallback.family, color: font.color || fallback.color },
     axisLine: { show: isCat && !deleted, lineStyle: { color: '#8c8c8c', width: 1 } },
     axisTick: { show: false },

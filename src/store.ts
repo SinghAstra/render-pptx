@@ -22,6 +22,9 @@ type State = {
   begin: () => void
   patchNode: (id: string, patch: { x?: number; y?: number; w?: number; h?: number; rot?: number }) => void
   deleteSelected: () => void
+  duplicateNode: (id: string) => void
+  reorderNode: (id: string, dir: 1 | -1) => void
+  restore: (deck: Deck) => void
   addSlide: () => void
   duplicateSlide: (index: number) => void
   deleteSlide: (index: number) => void
@@ -97,6 +100,39 @@ export const useDeck = create<State>((set, get) => ({
     set({
       deck: patchSlide(deck, current, (slide) => ({ ...slide, nodes: removeNode(slide.nodes, selected) })),
       selected: null,
+    })
+  },
+  duplicateNode: (id) => {
+    const { deck, current } = get()
+    if (!deck) return
+    const slide = deck.slides[current]
+    const index = slide.nodes.findIndex((node) => node.id === id)
+    if (index < 0) return
+    get().begin()
+    const source = slide.nodes[index]
+    const copy = { ...source, id: uid(), rect: { ...source.rect, x: source.rect.x + 12, y: source.rect.y + 12 } }
+    const nodes = [...slide.nodes]
+    nodes.splice(index + 1, 0, copy)
+    set({ deck: patchSlide(deck, current, (s) => ({ ...s, nodes })), selected: copy.id })
+  },
+  reorderNode: (id, dir) => {
+    const { deck, current } = get()
+    if (!deck) return
+    const slide = deck.slides[current]
+    const index = slide.nodes.findIndex((node) => node.id === id)
+    const target = index + dir
+    if (index < 0 || target < 0 || target >= slide.nodes.length) return
+    get().begin()
+    const nodes = [...slide.nodes]
+    const swapped = nodes[index]
+    nodes[index] = nodes[target]
+    nodes[target] = swapped
+    set({ deck: patchSlide(deck, current, (s) => ({ ...s, nodes })) })
+  },
+  restore: (deck) => {
+    set({ deck, current: 0, selected: null, past: [], future: [] })
+    ensureFonts(deck.fonts).then((loaded) => {
+      if (loaded) set((s) => ({ fontVersion: s.fontVersion + 1 }))
     })
   },
   addSlide: () => {
