@@ -1,8 +1,9 @@
 import { create } from 'zustand'
-import type { Deck } from './import/types'
+import type { ChartSeriesData, Deck } from './import/types'
 import { importPptx } from './import/deck'
 import { ensureFonts } from './fonts'
 import { cloneSlide, mapNodes, patchSlide, removeNode, uid } from './model'
+import { applyChartData } from './chartEdit'
 
 type State = {
   deck: Deck | null
@@ -24,6 +25,7 @@ type State = {
   deleteSelected: () => void
   duplicateNode: (id: string) => void
   reorderNode: (id: string, dir: 1 | -1) => void
+  patchChart: (id: string, categories: string[], series: ChartSeriesData[]) => void
   restore: (deck: Deck) => void
   addSlide: () => void
   duplicateSlide: (index: number) => void
@@ -128,6 +130,20 @@ export const useDeck = create<State>((set, get) => ({
     nodes[index] = nodes[target]
     nodes[target] = swapped
     set({ deck: patchSlide(deck, current, (s) => ({ ...s, nodes })) })
+  },
+  patchChart: (id, categories, series) => {
+    const { deck, current } = get()
+    if (!deck) return
+    set({
+      deck: patchSlide(deck, current, (slide) => ({
+        ...slide,
+        nodes: mapNodes(slide.nodes, id, (node) => {
+          if (node.kind !== 'chart') return node
+          const next = { ...node.chart, categories, series }
+          return { ...node, chart: { ...next, option: applyChartData(next) } }
+        }),
+      })),
+    })
   },
   restore: (deck) => {
     set({ deck, current: 0, selected: null, past: [], future: [] })

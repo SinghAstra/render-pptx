@@ -78,10 +78,19 @@ export type ChartTitle = {
   align: 'left' | 'center' | 'right'
 }
 
+export type ChartSeriesData = {
+  name: string
+  values: (number | null)[]
+  format: string
+}
+
 export type ChartData = {
   option: Record<string, unknown>
   transparent: boolean
   title: ChartTitle | null
+  pie: boolean
+  categories: string[]
+  series: ChartSeriesData[]
 }
 
 type Base = {

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useDeck } from '../store'
 import { findNode } from '../model'
+import { ChartGrid } from './ChartGrid'
 
 export function Inspector() {
   const deck = useDeck((s) => s.deck)
@@ -22,7 +23,7 @@ export function Inspector() {
   if (!deck) return null
   if (!node) {
     return (
-      <aside className="w-[236px] shrink-0 bg-white border-l border-[#e3e5e8] p-3 text-sm text-[#6b7280]">
+      <aside className="w-[268px] shrink-0 bg-white border-l border-[#e3e5e8] p-3 text-sm text-[#6b7280]">
         <div className="font-medium text-[#374151] mb-2">Properties</div>
         <p className="leading-relaxed">Select an element on the slide to edit its position, size and rotation.</p>
       </aside>
@@ -39,7 +40,7 @@ export function Inspector() {
     dirty.current = false
   }
   return (
-    <aside className="w-[236px] shrink-0 bg-white border-l border-[#e3e5e8] p-3 text-sm overflow-y-auto">
+    <aside className="w-[268px] shrink-0 bg-white border-l border-[#e3e5e8] p-3 text-sm overflow-y-auto">
       <div className="font-medium text-[#374151] mb-1">Properties</div>
       <div className="text-[11px] text-[#6b7280] mb-3 truncate">{node.name || node.kind}</div>
       <div key={rev} className="grid grid-cols-2 gap-2">
@@ -55,6 +56,7 @@ export function Inspector() {
         <ActionButton onClick={() => duplicateNode(node.id)}>Duplicate</ActionButton>
         <ActionButton onClick={deleteSelected}>Delete</ActionButton>
       </div>
+      {node.kind === 'chart' ? <ChartGrid node={node} /> : null}
       {node.kind === 'shape' && node.text ? (
         <div className="mt-4">
           <div className="text-[11px] text-[#6b7280] mb-1">Text</div>

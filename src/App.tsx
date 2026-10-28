@@ -27,11 +27,13 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       const mod = e.ctrlKey || e.metaKey
       if (mod && e.key.toLowerCase() === 'z') {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
         e.shiftKey ? redo() : undo()
         e.preventDefault()
         return
       }
       if (mod && e.key.toLowerCase() === 'y') {
+        if (document.activeElement instanceof HTMLElement) document.activeElement.blur()
         redo()
         e.preventDefault()
         return

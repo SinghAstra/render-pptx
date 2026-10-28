@@ -35,7 +35,8 @@ export async function parseChart(frame: Element, ctx: PartCtx): Promise<ChartNod
   const doc = await ctx.pkg.xml(target)
   const chart = kid(doc?.documentElement, 'chart')
   if (!chart) return null
-  const option = buildOption(chart, ctx)
+  const built = buildOption(chart, ctx)
+  const option = built.option
   return {
     kind: 'chart',
     id: uid(),
@@ -45,7 +46,14 @@ export async function parseChart(frame: Element, ctx: PartCtx): Promise<ChartNod
     flipH: xfrm.flipH,
     flipV: xfrm.flipV,
     hidden: false,
-    chart: { option, transparent: true, title: chartTitle(chart, ctx) },
+    chart: {
+      option,
+      transparent: true,
+      title: chartTitle(chart, ctx),
+      pie: built.pie,
+      categories: built.series[0]?.cats.map((c) => String(c)) ?? [],
+      series: built.series.map((s) => ({ name: s.name, values: s.values, format: s.format })),
+    },
   }
 }
 
@@ -84,7 +92,7 @@ function colorOf(ctx: PartCtx, i: number): string {
   return `#${ctx.theme.colors[name] ?? '4472C4'}`
 }
 
-function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
+function buildOption(chart: Element, ctx: PartCtx): { option: Record<string, unknown>; series: SeriesDef[]; pie: boolean } {
   const plot = kid(chart, 'plotArea')
   const parts = kids(plot, '*')
   const axisById = new Map<string, Element>()
@@ -94,7 +102,7 @@ function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
     if (id) axisById.set(id, el)
   }
   const charts = parts.filter((p) => TYPES.includes(p.localName))
-  if (!charts.length) return {}
+  if (!charts.length) return { option: {}, series: [], pie: false }
   const font = readFont(kid(chart, 'txPr') ?? kid(kid(chart, 'title'), 'txPr'), ctx.colors, ctx.theme)
   const pie = charts.find((c) => c.localName === 'pieChart' || c.localName === 'doughnutChart')
   const series = pie ? [pieSeries(pie, ctx)] : buildSeries(charts, ctx)
@@ -109,7 +117,7 @@ function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
   if (legend) base.legend = legend
   if (pie) {
     base.series = series.map((s) => pieOption(s, ctx, pie))
-    return base
+    return { option: base, series, pie: true }
   }
   const horizontal = series[0]?.horizontal ?? false
   const catId = attr(kids(charts[0], 'axId')[0], 'val') ?? ''
@@ -146,7 +154,7 @@ function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
   }
   base.grid = grid
   base.series = series.map((s, i) => seriesOption(s, i))
-  return base
+  return { option: base, series, pie: false }
 }
 
 function manualLayout(container: Element | undefined) {
