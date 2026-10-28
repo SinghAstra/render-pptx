@@ -1,7 +1,17 @@
+import type { ReactNode, RefObject } from 'react'
 import type { Deck, Slide } from '../import/types'
 import { NodeView } from './NodeView'
 
-export function SlideStage({ deck, slide, width }: { deck: Deck; slide: Slide; width: number }) {
+type Props = {
+  deck: Deck
+  slide: Slide
+  width: number
+  children?: ReactNode
+  stageRef?: RefObject<HTMLDivElement>
+  onBackgroundDown?: () => void
+}
+
+export function SlideStage({ deck, slide, width, children, stageRef, onBackgroundDown }: Props) {
   const scale = width / deck.width
   return (
     <div
@@ -14,6 +24,8 @@ export function SlideStage({ deck, slide, width }: { deck: Deck; slide: Slide; w
       }}
     >
       <div
+        ref={stageRef}
+        onPointerDown={onBackgroundDown}
         style={{
           width: deck.width,
           height: deck.height,
@@ -27,6 +39,7 @@ export function SlideStage({ deck, slide, width }: { deck: Deck; slide: Slide; w
         {slide.nodes.map((node) => (
           <NodeView key={node.id} node={node} />
         ))}
+        {children}
       </div>
     </div>
   )
