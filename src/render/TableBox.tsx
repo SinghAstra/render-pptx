@@ -3,56 +3,51 @@ import { TextBlock } from './TextBlock'
 
 export function TableBox({ node }: { node: TableNode }) {
   const { cols, rows } = node.table
-  const xs: number[] = []
-  let x = 0
-  for (const w of cols) {
-    xs.push(x)
-    x += w
-  }
-  let y = 0
   return (
-    <div style={{ position: 'absolute', inset: 0 }}>
-      {rows.map((row, ri) => {
-        const top = y
-        y += row.h
-        return row.cells.map((cell, ci) => {
+    <div
+      style={{
+        position: 'absolute',
+        left: 0,
+        top: 0,
+        width: '100%',
+        display: 'grid',
+        gridTemplateColumns: cols.map((w) => `${w}px`).join(' '),
+        gridTemplateRows: rows.map((r) => `minmax(${r.h}px, auto)`).join(' '),
+        alignContent: 'start',
+        alignItems: 'stretch',
+      }}
+    >
+      {rows.map((row, ri) =>
+        row.cells.map((cell, ci) => {
           if (cell.skip || ci >= cols.length) return null
-          const width = spanWidth(cols, ci, cell.colspan)
           return (
             <div
               key={`${ri}-${ci}`}
               style={{
-                position: 'absolute',
-                left: xs[ci],
-                top,
-                width,
-                height: row.h,
+                gridColumn: `${ci + 1} / span ${Math.min(cell.colspan, cols.length - ci)}`,
+                gridRow: `${ri + 1} / span ${Math.min(cell.rowspan, rows.length - ri)}`,
+                position: 'relative',
                 background: cell.fill ?? undefined,
+                minWidth: 0,
               }}
             >
-              {cell.text ? <TextBlock body={cell.text} /> : null}
-              <Edges cell={cell} width={width} height={row.h} />
+              {cell.text ? <TextBlock body={cell.text} flow /> : null}
+              <Edges cell={cell} />
             </div>
           )
-        })
-      })}
+        }),
+      )}
     </div>
   )
 }
 
-function spanWidth(cols: number[], start: number, span: number) {
-  let w = 0
-  for (let i = start; i < Math.min(cols.length, start + span); i++) w += cols[i]
-  return w || cols[start] || 0
-}
-
-function Edges({ cell, width, height }: { cell: Cell; width: number; height: number }) {
+function Edges({ cell }: { cell: Cell }) {
   return (
     <>
-      <Edge line={cell.borders.t} style={{ left: 0, top: 0, width, height: 0, borderTop: border(cell.borders.t) }} />
-      <Edge line={cell.borders.b} style={{ left: 0, top: height, width, height: 0, borderTop: border(cell.borders.b) }} />
-      <Edge line={cell.borders.l} style={{ left: 0, top: 0, width: 0, height, borderLeft: border(cell.borders.l) }} />
-      <Edge line={cell.borders.r} style={{ left: width, top: 0, width: 0, height, borderLeft: border(cell.borders.r) }} />
+      <Edge style={{ left: 0, right: 0, top: 0, height: 0, borderTop: border(cell.borders.t) }} />
+      <Edge style={{ left: 0, right: 0, bottom: 0, height: 0, borderTop: border(cell.borders.b) }} />
+      <Edge style={{ top: 0, bottom: 0, left: 0, width: 0, borderLeft: border(cell.borders.l) }} />
+      <Edge style={{ top: 0, bottom: 0, right: 0, width: 0, borderLeft: border(cell.borders.r) }} />
     </>
   )
 }
@@ -62,6 +57,6 @@ function border(line: Line | null) {
   return `${Math.max(0.5, line.width)}px ${line.dash ? 'dashed' : 'solid'} ${line.color}`
 }
 
-function Edge({ style }: { line: Line | null; style: React.CSSProperties }) {
-  return <div style={{ position: 'absolute', ...style }} />
+function Edge({ style }: { style: React.CSSProperties }) {
+  return <div style={{ position: 'absolute', pointerEvents: 'none', ...style }} />
 }

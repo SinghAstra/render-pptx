@@ -1,10 +1,12 @@
-import { attr, kid, kids, relId } from './xml'
+import { attr, kid, kids, numAttr, relId } from './xml'
 import { parseXfrm, hidden, shapeName } from './xfrm'
 import { colorElement, readColor } from './color'
+import { findFillEl, parseFillEl } from './fill'
 import { uid } from './shape'
-import { axisFont, cacheValues, chartGridLine, dataLabelInfo, formatNumber, numFmt, readFont, seriesColor, titleText } from './chartParts'
+import { axisFont, cacheValues, chartGridLine, dataLabelInfo, formatNumber, numFmt, readFont, titleText } from './chartParts'
+import { fontFace } from './text'
 import type { PartCtx } from './context'
-import type { ChartNode } from './types'
+import type { ChartNode, ChartTitle, ChartTitleRun } from './types'
 
 const PALETTE = ['accent1', 'accent2', 'accent3', 'accent4', 'accent5', 'accent6']
 const TYPES = ['barChart', 'bar3DChart', 'lineChart', 'areaChart', 'scatterChart', 'pieChart', 'doughnutChart']
@@ -14,7 +16,9 @@ type SeriesDef = {
   name: string
   cats: (string | number)[]
   values: (number | null)[]
-  color: string
+  color: string | null
+  colors: (string | null)[]
+  format: string
   labels: { show: boolean; pos?: string; format?: string }
   stack?: string
   horizontal: boolean
@@ -41,7 +45,37 @@ export async function parseChart(frame: Element, ctx: PartCtx): Promise<ChartNod
     flipH: xfrm.flipH,
     flipV: xfrm.flipV,
     hidden: false,
-    chart: { option, transparent: true },
+    chart: { option, transparent: true, title: chartTitle(chart, ctx) },
+  }
+}
+
+function chartTitle(chart: Element, ctx: PartCtx): ChartTitle | null {
+  const title = kid(chart, 'title')
+  if (!title || attr(kid(chart, 'autoTitleDeleted'), 'val') === '1') return null
+  const rich = kid(kid(title, 'tx'), 'rich')
+  const runs: ChartTitleRun[] = []
+  for (const p of kids(rich, 'p')) {
+    for (const r of kids(p, 'r')) {
+      const rPr = kid(r, 'rPr')
+      const size = Number(attr(rPr, 'sz') ?? 1200) / 100
+      runs.push({
+        text: kid(r, 't')?.textContent ?? '',
+        color: readColor(colorElement(kid(rPr, 'solidFill')), ctx.colors) ?? '#000000',
+        size: size * (96 / 72),
+        bold: attr(rPr, 'b') === '1',
+        font: fontFace(attr(kid(rPr, 'latin'), 'typeface') ?? '', ctx.theme),
+      })
+    }
+  }
+  if (!runs.length) return null
+  const ml = manualLayout(title)
+  const algn = attr(kid(kid(rich, 'p'), 'pPr'), 'algn')
+  return {
+    runs,
+    left: ml ? ml.x : 0,
+    top: ml ? ml.y : 0.02,
+    width: ml ? Math.max(0.1, 1 - ml.x) : 1,
+    align: algn === 'l' ? 'left' : algn === 'r' ? 'right' : 'center',
   }
 }
 
@@ -69,16 +103,9 @@ function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
     backgroundColor: chartBackground(chart, ctx),
     textStyle: { fontFamily: font.family, fontSize: font.size, color: font.color },
   }
-  const title = titleText(chart)
-  if (title) {
-    base.title = {
-      text: title,
-      left: 'center',
-      top: 4,
-      textStyle: { fontFamily: font.family, fontSize: font.size + 2, color: font.color, fontWeight: 'bold' },
-    }
-  }
-  const legend = legendOption(chart, ctx)
+  const titleTextValue = attr(kid(chart, 'autoTitleDeleted'), 'val') === '1' ? '' : titleText(chart)
+  const titleHeight = titleTextValue ? font.size + 16 : 0
+  const legend = legendOption(chart, ctx, titleHeight)
   if (legend) base.legend = legend
   if (pie) {
     base.series = series.map((s) => pieOption(s, ctx, pie))
@@ -94,13 +121,22 @@ function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
   const cats = series[0]?.cats ?? []
   const legendEl = kid(chart, 'legend')
   const legendPos = legendEl ? attr(kid(legendEl, 'legendPos'), 'val') ?? 'r' : null
-  const grid = {
-    left: legendPos === 'l' ? 120 : 8,
-    right: legendPos === 'r' ? 120 : 16,
-    top: title ? 40 : 12,
-    bottom: legendPos === 'b' ? 40 : 12,
-    containLabel: true,
-  }
+  const plotMl = manualLayout(plot)
+  const grid = plotMl
+    ? {
+        left: `${plotMl.x * 100}%`,
+        top: `${plotMl.y * 100}%`,
+        width: `${plotMl.w * 100}%`,
+        height: `${plotMl.h * 100}%`,
+        containLabel: false,
+      }
+    : {
+        left: legendPos === 'l' ? 120 : 8,
+        right: legendPos === 'r' ? 120 : 16,
+        top: titleHeight ? titleHeight + 6 : 12,
+        bottom: legendPos === 'b' ? 40 : 12,
+        containLabel: true,
+      }
   if (horizontal) {
     base.yAxis = { ...cat, data: cats, type: 'category' }
     base.xAxis = val
@@ -111,6 +147,16 @@ function buildOption(chart: Element, ctx: PartCtx): Record<string, unknown> {
   base.grid = grid
   base.series = series.map((s, i) => seriesOption(s, i))
   return base
+}
+
+function manualLayout(container: Element | undefined) {
+  const ml = kid(kid(container, 'layout'), 'manualLayout')
+  if (!ml) return null
+  const n = (name: string, fallback: number) => {
+    const v = attr(kid(ml, name), 'val')
+    return v === undefined ? fallback : Number(v)
+  }
+  return { x: n('x', 0), y: n('y', 0), w: n('w', 1), h: n('h', 1) }
 }
 
 function chartBackground(chart: Element, ctx: PartCtx): string {
@@ -131,12 +177,15 @@ function buildSeries(charts: Element[], ctx: PartCtx): SeriesDef[] {
     for (const ser of kids(chart, 'ser')) {
       const data = readSeries(ser)
       const labels = dataLabelInfo(ser, chart)
+      const color = seriesFill(ser, ctx, colorOf(ctx, index))
       out.push({
         kind,
         name: data.name || `Series ${index + 1}`,
         cats: data.cats,
         values: data.values,
-        color: seriesColor(ser, { colors: ctx.colors, theme: ctx.theme, width: 0, height: 0 }, colorOf(ctx, index)),
+        color,
+        colors: pointColors(ser, ctx),
+        format: data.format,
         labels,
         stack,
         horizontal: kind === 'bar' && dir === 'bar',
@@ -146,6 +195,25 @@ function buildSeries(charts: Element[], ctx: PartCtx): SeriesDef[] {
     }
   }
   if (charts.some((c) => attr(kid(c, 'grouping'), 'val') === 'percentStacked')) normalizePercent(out)
+  return out
+}
+
+function seriesFill(ser: Element, ctx: PartCtx, fallback: string): string | null {
+  const spPr = kid(ser, 'spPr')
+  const fill = findFillEl(spPr)
+  if (!fill) return fallback
+  if (fill.localName === 'noFill') return null
+  return parseFillEl(fill, ctx.colors, () => undefined) ?? fallback
+}
+
+function pointColors(ser: Element, ctx: PartCtx): (string | null)[] {
+  const out: (string | null)[] = []
+  for (const pt of kids(ser, 'dPt')) {
+    const idx = numAttr(kid(pt, 'idx'), 'val', 0)
+    const fill = findFillEl(kid(pt, 'spPr'))
+    if (!fill) continue
+    out[idx] = fill.localName === 'noFill' ? null : parseFillEl(fill, ctx.colors, () => undefined)
+  }
   return out
 }
 
@@ -169,12 +237,14 @@ function readSeries(ser: Element) {
     .map((p) => kid(p, 'v')?.textContent ?? '')
     .join('')
   const cats = readCats(kid(ser, 'cat'))
-  const cached = cacheValues(kid(kid(kid(ser, 'val'), 'numRef'), 'numCache'))
+  const numCache = kid(kid(kid(ser, 'val'), 'numRef'), 'numCache')
+  const cached = cacheValues(numCache)
+  const format = kid(numCache, 'formatCode')?.textContent ?? ''
   const values = cached.values.length ? cached.values : cached.cats.map((v) => {
     const n = Number(v)
     return Number.isFinite(n) ? n : null
   })
-  return { name, cats, values }
+  return { name, cats, values, format }
 }
 
 function readCats(cat: Element | undefined): (string | number)[] {
@@ -197,13 +267,19 @@ function readCats(cat: Element | undefined): (string | number)[] {
 }
 
 function seriesOption(s: SeriesDef, i: number): Record<string, unknown> {
+  const code = s.labels.format || s.format
   const label = {
     show: s.labels.show,
     position: labelPos(s),
     fontSize: 12,
-    formatter: s.labels.format ? (p: { value: number }) => formatNumber(Number(p.value), s.labels.format ?? '') : undefined,
+    formatter: code ? (p: { value: number }) => formatNumber(Number(p.value), code) : undefined,
   }
-  const base: Record<string, unknown> = { name: s.name, data: s.values }
+  const data = s.values.map((v, idx) => {
+    const c = s.colors[idx]
+    return c === undefined ? v : { value: v, itemStyle: { color: c ?? 'transparent' } }
+  })
+  const color = s.color ?? 'transparent'
+  const base: Record<string, unknown> = { name: s.name, data }
   if (s.kind === 'line') {
     return {
       ...base,
@@ -212,8 +288,8 @@ function seriesOption(s: SeriesDef, i: number): Record<string, unknown> {
       symbol: 'circle',
       symbolSize: 5,
       showSymbol: false,
-      lineStyle: { width: 2, color: s.color },
-      itemStyle: { color: s.color },
+      lineStyle: { width: 2, color },
+      itemStyle: { color },
       label,
       ...(s.stack ? { stack: s.stack } : {}),
     }
@@ -224,9 +300,9 @@ function seriesOption(s: SeriesDef, i: number): Record<string, unknown> {
       type: 'line',
       smooth: s.smooth,
       showSymbol: false,
-      lineStyle: { width: 2, color: s.color },
-      itemStyle: { color: s.color },
-      areaStyle: { color: s.color, opacity: 0.5 },
+      lineStyle: { width: 2, color },
+      itemStyle: { color },
+      areaStyle: { color, opacity: 0.5 },
       label,
       ...(s.stack ? { stack: s.stack } : {}),
     }
@@ -236,14 +312,14 @@ function seriesOption(s: SeriesDef, i: number): Record<string, unknown> {
       ...base,
       type: 'scatter',
       symbolSize: 8,
-      itemStyle: { color: s.color },
+      itemStyle: { color },
       label,
     }
   }
   return {
     ...base,
     type: 'bar',
-    itemStyle: { color: s.color, borderColor: s.color, borderWidth: 0 },
+    itemStyle: { color, borderColor: s.color ?? 'transparent', borderWidth: 0 },
     label,
     ...(s.stack ? { stack: s.stack } : {}),
     ...(i === 0 ? { barGap: '0%' } : {}),
@@ -271,9 +347,9 @@ function axisOption(axis: Element | undefined, ctx: PartCtx, isCat: boolean, fal
     nameTextStyle: { fontSize: font.size || fallback.size, fontFamily: font.family || fallback.family, color: font.color || fallback.color },
     axisLine: { show: isCat && !deleted, lineStyle: { color: '#8c8c8c', width: 1 } },
     axisTick: { show: false },
-    splitLine: { show: !isCat && !!gridColor, lineStyle: { color: gridColor ?? '#e0e0e0', width: 1 } },
+    splitLine: { show: !deleted && !isCat && !!gridColor, lineStyle: { color: gridColor ?? '#e0e0e0', width: 1 } },
     axisLabel: {
-      show: attr(kid(axis, 'tickLblPos'), 'val') !== 'none',
+      show: !deleted && attr(kid(axis, 'tickLblPos'), 'val') !== 'none',
       fontSize: font.size || fallback.size,
       fontFamily: font.family || fallback.family,
       color: font.color || fallback.color,
@@ -284,17 +360,17 @@ function axisOption(axis: Element | undefined, ctx: PartCtx, isCat: boolean, fal
   }
 }
 
-function legendOption(chart: Element, ctx: PartCtx) {
+function legendOption(chart: Element, ctx: PartCtx, titleHeight = 0) {
   const legend = kid(chart, 'legend')
   if (!legend) return undefined
   const pos = attr(kid(legend, 'legendPos'), 'val') ?? 'r'
   const font = readFont(kid(legend, 'txPr'), ctx.colors, ctx.theme)
   const place: Record<string, Record<string, unknown>> = {
     b: { bottom: 4, left: 'center' },
-    t: { top: 4, left: 'center' },
+    t: { top: 4 + titleHeight, left: 'center' },
     l: { left: 4, top: 'middle', orient: 'vertical' },
     r: { right: 4, top: 'middle', orient: 'vertical' },
-    tr: { top: 4, right: 4 },
+    tr: { top: 4 + titleHeight, right: 4 },
   }
   return {
     show: true,
@@ -308,14 +384,16 @@ function legendOption(chart: Element, ctx: PartCtx) {
 
 function pieSeries(chart: Element, ctx: PartCtx): SeriesDef {
   const ser = kid(chart, 'ser')
-  const data = ser ? readSeries(ser) : { name: '', cats: [], values: [] }
+  const data = ser ? readSeries(ser) : { name: '', cats: [], values: [], format: '' }
   const labels = ser ? dataLabelInfo(ser, chart) : { show: false }
   return {
     kind: chart.localName === 'doughnutChart' ? 'doughnut' : 'pie',
     name: data.name,
     cats: data.cats,
     values: data.values,
+    format: data.format,
     color: colorOf(ctx, 0),
+    colors: [],
     labels,
     horizontal: false,
     smooth: false,

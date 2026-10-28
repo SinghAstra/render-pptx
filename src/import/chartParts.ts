@@ -40,18 +40,20 @@ export function numFmt(el: Element | undefined): string {
 
 export function formatNumber(value: number, code: string): string {
   if (!Number.isFinite(value)) return ''
-  const pct = code.includes('%')
+  const main = (code.split(';')[0] ?? '').trim()
+  if (!main || main.toLowerCase() === 'general') return String(Number(value.toFixed(4)))
+  const pct = main.includes('%')
   const v = pct ? value * 100 : value
-  const decimals = (code.split('.')[1] ?? '').replace(/[^0#]/g, '').length
-  const group = code.includes(',')
+  const decimals = (main.split('.')[1] ?? '').replace(/[^0#]/g, '').length
+  const group = main.includes(',')
   let out = v.toFixed(decimals)
   if (group) {
     const parts = out.split('.')
     parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',')
     out = parts.join('.')
   }
+  if (main.includes('$')) out = `$${out}`
   if (pct) out += '%'
-  if (code.includes('$')) out = `$${out}`
   return out
 }
 
@@ -67,13 +69,6 @@ export function cacheValues(cache: Element | undefined): { cats: (string | numbe
     values[idx] = Number.isFinite(n) ? n : null
   }
   return { cats, values }
-}
-
-export function seriesColor(ser: Element, ctx: ChartCtx, fallback: string): string {
-  const spPr = kid(ser, 'spPr')
-  const fill = kid(spPr, 'solidFill')
-  if (fill) return readColor(colorElement(fill), ctx.colors) ?? fallback
-  return fallback
 }
 
 export function dataLabelInfo(ser: Element, chartLevel: Element | undefined): { show: boolean; pos?: string; format?: string } {

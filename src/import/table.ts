@@ -1,9 +1,9 @@
-import { kid, kids, numAttr } from './xml'
+import { kid, kids, numAttr, attr } from './xml'
 import { readColor } from './color'
 import { parseLine } from './line'
 import { parseTextBody } from './text'
 import type { PartCtx } from './context'
-import type { TableData, TableNode, Cell } from './types'
+import type { TableData, TableNode, Cell, TextBody } from './types'
 import { EMU, parseXfrm, hidden, shapeName } from './xfrm'
 import { uid } from './shape'
 
@@ -41,6 +41,7 @@ function parseCell(tc: Element, ctx: PartCtx): Cell {
     colors: ctx.colors,
     sources: [kid(body, 'lstStyle'), ...ctx.textDefaults].filter((e): e is Element => !!e),
   })
+  if (text) applyCellMetrics(text, tcPr)
   return {
     text,
     fill: fillEl ? readColor(fillEl.children[0], ctx.colors) : null,
@@ -55,4 +56,18 @@ function parseCell(tc: Element, ctx: PartCtx): Cell {
     skip: numAttr(tcPr, 'hMerge') === 1 || numAttr(tcPr, 'vMerge') === 1,
     anchor: 'top',
   }
+}
+
+function applyCellMetrics(text: TextBody, tcPr: Element | undefined) {
+  const margin = (name: string, d: number) => {
+    const v = attr(tcPr, name)
+    return v === undefined ? d : Number(v) / EMU
+  }
+  text.lIns = margin('marL', text.lIns)
+  text.rIns = margin('marR', text.rIns)
+  text.tIns = margin('marT', text.tIns)
+  text.bIns = margin('marB', text.bIns)
+  const anchor = attr(tcPr, 'anchor')
+  if (anchor === 'ctr') text.anchor = 'middle'
+  else if (anchor === 'b') text.anchor = 'bottom'
 }

@@ -165,6 +165,7 @@ export function parseTextBody(txBody: Element | undefined, env: TextEnv): TextBo
     vertical: vert === 'vert' || vert === 'vert270' || vert === 'wordArtVert',
     rot: vert === 'vert270' ? -90 : 90,
     sizeScale: scale,
+    shrink: !!autoFit && autoFit.getAttribute('fontScale') === null,
   }
 }
 

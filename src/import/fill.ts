@@ -1,4 +1,4 @@
-import { attr, kid, kids, numAttr, path } from './xml'
+import { attr, kid, kids, numAttr, path, all } from './xml'
 import { readColor, type ColorCtx } from './color'
 
 export type ImageResolver = (embedId: string) => string | undefined
@@ -105,6 +105,11 @@ export function imageFill(el: Element, img: ImageResolver): string | null {
 export function findEmbed(el: Element): string | undefined {
   for (const a of Array.from(el.attributes)) {
     if (a.localName === 'embed' || a.localName === 'link') return a.value
+  }
+  const svg = all(el, 'svgBlip')[0]
+  if (svg) {
+    const a = Array.from(svg.attributes).find((x) => x.localName === 'embed')
+    if (a) return a.value
   }
   return undefined
 }

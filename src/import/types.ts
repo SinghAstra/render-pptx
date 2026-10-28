@@ -51,6 +51,7 @@ export type TextBody = {
   vertical: boolean
   rot: number
   sizeScale: number
+  shrink: boolean
 }
 
 export type Geom = { preset: string; adj?: number[]; path?: string; box?: { w: number; h: number } }
@@ -67,9 +68,20 @@ export type Cell = {
 
 export type TableData = { cols: number[]; rows: { h: number; cells: Cell[] }[] }
 
+export type ChartTitleRun = { text: string; color: string; size: number; bold: boolean; font: string }
+
+export type ChartTitle = {
+  runs: ChartTitleRun[]
+  left: number
+  top: number
+  width: number
+  align: 'left' | 'center' | 'right'
+}
+
 export type ChartData = {
   option: Record<string, unknown>
   transparent: boolean
+  title: ChartTitle | null
 }
 
 type Base = {
