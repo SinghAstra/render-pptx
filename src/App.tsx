@@ -9,6 +9,7 @@ import { Presenter } from './ui/Presenter'
 export default function App() {
   const deck = useDeck((s) => s.deck)
   const presenting = useDeck((s) => s.presenting)
+  const fontVersion = useDeck((s) => s.fontVersion)
   const setPresenting = useDeck((s) => s.setPresenting)
   const load = useDeck((s) => s.load)
   const step = useDeck((s) => s.step)
@@ -58,7 +59,7 @@ export default function App() {
   return (
     <div className="h-full flex flex-col">
       <TopBar />
-      <div className="flex-1 flex min-h-0">
+      <div className="flex-1 flex min-h-0" key={fontVersion}>
         {deck ? <Thumbnails /> : null}
         {deck ? <Stage /> : <Empty />}
       </div>

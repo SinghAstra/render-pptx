@@ -1,6 +1,6 @@
 import { openPackage } from './package'
 import { loadRels, emptyRels, type Rels } from './rels'
-import { kid, kids, numAttr, relId } from './xml'
+import { kid, kids, numAttr, relId, attr } from './xml'
 import { parseTheme, type Theme } from './theme'
 import { parseThemeFmt } from './style'
 import { createMedia } from './media'
@@ -92,11 +92,16 @@ export async function importPptx(data: ArrayBuffer, name: string): Promise<Deck>
   const firstMaster = presRels.byType('/slideMaster')[0]
   const themePath = firstMaster ? (await relOf(firstMaster.target)).byType('/theme')[0]?.target : undefined
   const theme: Theme = parseTheme(themePath ? await load(themePath) : null)
+  const fonts = kids(kid(root, 'embeddedFontLst'), 'embeddedFont')
+    .map((ef) => kid(ef, 'font'))
+    .map((f) => attr(f, 'typeface') ?? '')
+    .filter(Boolean)
   return {
     title: name.replace(/\.pptx?$/i, ''),
     width,
     height,
     slides,
     theme: { colors: theme.colors, majorFont: theme.majorFont, minorFont: theme.minorFont },
+    fonts: [...new Set([...fonts, theme.majorFont, theme.minorFont])],
   }
 }

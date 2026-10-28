@@ -1,15 +1,17 @@
 import { useLayoutEffect, useRef, useState, type CSSProperties } from 'react'
 import type { TextBody, TextRun } from '../import/types'
+import { splitFamily } from '../fonts'
 
 function runStyle(r: TextRun, fit: number): CSSProperties {
   const deco = [r.underline ? 'underline' : '', r.strike ? 'line-through' : ''].filter(Boolean).join(' ')
+  const font = splitFamily(r.font)
   return {
     fontSize: r.size * fit,
-    fontWeight: r.bold ? 700 : 400,
+    fontWeight: font.weight ?? (r.bold ? 700 : 400),
     fontStyle: r.italic ? 'italic' : 'normal',
     textDecoration: deco || undefined,
     color: r.color ?? '#000',
-    fontFamily: `"${r.font}", "Segoe UI", Arial, sans-serif`,
+    fontFamily: `"${font.family}", "Segoe UI", Arial, sans-serif`,
     letterSpacing: r.spacing ? r.spacing * fit : undefined,
     backgroundColor: r.highlight ?? undefined,
     verticalAlign: r.sup ? 'super' : r.sub ? 'sub' : undefined,

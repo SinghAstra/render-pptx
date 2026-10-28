@@ -93,7 +93,7 @@ function runStyle(rpr: Element[], env: TextEnv, level: LevelProps): Omit<TextRun
   } as Omit<TextRun, 'text'>
 }
 
-function lineHeightOf(ppr: Element[], fallback: number): number {
+function lineHeightOf(ppr: Element[], fallback: number | 'normal'): number | 'normal' {
   const ln = pickChild(ppr, 'lnSpc')
   if (!ln) return fallback
   const pct = kid(ln, 'spcPct')
@@ -199,7 +199,7 @@ function parseParagraph(p: Element, env: TextEnv, scale: number, lnReduction: nu
     bulletIndent: -Number(pickAttr(pprs, 'indent') ?? 0) / EMU,
     marL: Number(pickAttr(pprs, 'marL') ?? 0) / EMU,
     indent: Number(pickAttr(pprs, 'indent') ?? 0) / EMU,
-    lineHeight: Math.max(0.75, lineHeightOf(pprs, 1.2) - lnReduction),
+    lineHeight: lineHeightOf(pprs, 'normal') === 'normal' ? 'normal' : Math.max(0.75, (lineHeightOf(pprs, 'normal') as number) - lnReduction),
     spaceBefore: spacingOf(pprs, 'spcBef', size),
     spaceAfter: spacingOf(pprs, 'spcAft', size),
     rtl: false,

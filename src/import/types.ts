@@ -34,7 +34,7 @@ export type TextParagraph = {
   bulletIndent: number
   marL: number
   indent: number
-  lineHeight: number
+  lineHeight: number | 'normal'
   spaceBefore: number
   spaceAfter: number
   rtl: boolean
@@ -139,4 +139,5 @@ export type Deck = {
   height: number
   slides: Slide[]
   theme: { colors: Record<string, string>; majorFont: string; minorFont: string }
+  fonts: string[]
 }

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react'
 import * as echarts from 'echarts'
 import type { ChartNode } from '../import/types'
+import { splitFamily } from '../fonts'
 
 export function ChartBox({ node }: { node: ChartNode }) {
   const ref = useRef<HTMLDivElement>(null)
@@ -39,7 +40,7 @@ export function ChartBox({ node }: { node: ChartNode }) {
                 fontSize: r.size,
                 color: r.color,
                 fontWeight: r.bold ? 700 : 400,
-                fontFamily: `"${r.font}", "Segoe UI", Arial, sans-serif`,
+                fontFamily: `"${splitFamily(r.font).family}", "Segoe UI", Arial, sans-serif`,
                 whiteSpace: 'pre-wrap',
               }}
             >

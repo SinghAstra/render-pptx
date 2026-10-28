@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { Deck } from './import/types'
 import { importPptx } from './import/deck'
+import { ensureFonts } from './fonts'
 
 type State = {
   deck: Deck | null
@@ -8,6 +9,7 @@ type State = {
   loading: boolean
   error: string | null
   presenting: boolean
+  fontVersion: number
   load: (file: File) => Promise<void>
   select: (index: number) => void
   step: (delta: number) => void
@@ -20,11 +22,15 @@ export const useDeck = create<State>((set, get) => ({
   loading: false,
   error: null,
   presenting: false,
+  fontVersion: 0,
   load: async (file) => {
     set({ loading: true, error: null })
     try {
       const deck = await importPptx(await file.arrayBuffer(), file.name)
       set({ deck, current: 0, loading: false })
+      ensureFonts(deck.fonts).then((loaded) => {
+        if (loaded) set((s) => ({ fontVersion: s.fontVersion + 1 }))
+      })
     } catch (err) {
       set({ loading: false, error: err instanceof Error ? err.message : 'Could not read this file' })
     }
